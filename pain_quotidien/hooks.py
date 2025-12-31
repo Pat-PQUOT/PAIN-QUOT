@@ -1,7 +1,7 @@
 from . import __version__ as app_version
 
 app_name = "pain_quotidien"
-app_title = "Pain Quotidien"
+app_title = "PQUOT Workspace Épicerie"
 app_publisher = "Pain Quotidien"
 app_description = "App ERPNext pour l'association Pain Quotidien"
 app_icon = "octicon octicon-file-directory"
