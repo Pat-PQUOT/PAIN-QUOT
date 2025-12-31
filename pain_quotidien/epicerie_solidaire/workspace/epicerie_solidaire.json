@@ -1,0 +1,99 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"fUJXwMi_xj\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Gestion B\\u00e9n\\u00e9ficiaires</b></span>\",\"col\":12}},{\"id\":\"rK3lFsOdpB\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"B\\u00e9n\\u00e9ficiaires\",\"col\":3}},{\"id\":\"4W7xBmf-Yp\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Nouveau B\\u00e9n\\u00e9ficiaire\",\"col\":3}},{\"id\":\"gH2nKpQrTs\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Gestion Donateurs</b></span>\",\"col\":12}},{\"id\":\"vL9mNwXcUz\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Donateurs\",\"col\":3}},{\"id\":\"aP5qRtYuIo\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Nouveau Donateur\",\"col\":3}},{\"id\":\"bQ8sWvZxJk\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>R\\u00e9ceptions & Distributions</b></span>\",\"col\":12}},{\"id\":\"cR1tXyAwMl\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"R\\u00e9ceptions Dons\",\"col\":3}},{\"id\":\"dS2uVzBnOp\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Nouvelle R\\u00e9ception\",\"col\":3}},{\"id\":\"eT3vWaCpQr\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Distributions\",\"col\":3}},{\"id\":\"fU4wXbDqRs\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Nouvelle Distribution\",\"col\":3}},{\"id\":\"gV5xYcErTu\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Stock & Produits</b></span>\",\"col\":12}},{\"id\":\"hW6yZdFsUv\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stock \\u00c9picerie\",\"col\":3}},{\"id\":\"iX7zAeFtWw\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Produits\",\"col\":3}}]",
+ "creation": "2024-12-27 17:30:00.000000",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "shopping-cart",
+ "idx": 0,
+ "is_hidden": 0,
+ "label": "\u00c9picerie Solidaire",
+ "links": [],
+ "modified": "2024-12-27 17:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "\u00c9picerie Solidaire",
+ "name": "Epicerie Solidaire",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 15.0,
+ "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "List",
+   "label": "B\u00e9n\u00e9ficiaires",
+   "link_to": "Customer",
+   "type": "DocType"
+  },
+  {
+   "color": "Green",
+   "doc_view": "New",
+   "label": "Nouveau B\u00e9n\u00e9ficiaire",
+   "link_to": "Customer",
+   "type": "DocType"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "List",
+   "label": "Donateurs",
+   "link_to": "Supplier",
+   "type": "DocType"
+  },
+  {
+   "color": "Green",
+   "doc_view": "New",
+   "label": "Nouveau Donateur",
+   "link_to": "Supplier",
+   "type": "DocType"
+  },
+  {
+   "color": "Orange",
+   "doc_view": "List",
+   "label": "R\u00e9ceptions Dons",
+   "link_to": "Purchase Receipt",
+   "type": "DocType"
+  },
+  {
+   "color": "Green",
+   "doc_view": "New",
+   "label": "Nouvelle R\u00e9ception",
+   "link_to": "Purchase Receipt",
+   "type": "DocType"
+  },
+  {
+   "color": "Purple",
+   "doc_view": "List",
+   "label": "Distributions",
+   "link_to": "Delivery Note",
+   "type": "DocType"
+  },
+  {
+   "color": "Green",
+   "doc_view": "New",
+   "label": "Nouvelle Distribution",
+   "link_to": "Delivery Note",
+   "type": "DocType"
+  },
+  {
+   "color": "Teal",
+   "doc_view": "Report",
+   "label": "Stock \u00c9picerie",
+   "link_to": "Stock Balance",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Produits",
+   "link_to": "Item",
+   "type": "DocType"
+  }
+ ],
+ "title": "\u00c9picerie Solidaire"
+}
