@@ -1,75 +1,215 @@
-// Client Script: Reception Don Calculs
-// DocType: Reception Don
-// View: Form
+/**
+ * Client Script: Reception Don - Scan Rapide v2
+ * DocType: Reception Don
+ * Description: Scan automatique optimisé + option quantité multiple
+ * Date: 04/01/2026
+ * 
+ * WORKFLOW:
+ * 1. Scan simple → Auto-ajout qté 1 (ou +1)
+ * 2. Bouton "Scan avec Quantité" → Dialog pour volumes
+ * 3. Article inexistant → Dialog création APIs
+ */
 
 frappe.ui.form.on('Reception Don', {
+    
     refresh: function(frm) {
         calculate_totals(frm);
-        // Supprimer les lignes vides au chargement
         remove_empty_rows(frm);
-        // Configurer l'événement Entrée sur le champ scan
         setup_barcode_scanner(frm);
+        
+        // Bouton "Scan avec Quantité" si doc non validé
+        if (frm.doc.docstatus === 0) {
+            frm.add_custom_button(__('📦 Scan avec Quantité'), function() {
+                open_quantity_scan_dialog(frm);
+            });
+        }
     },
+    
     validate: function(frm) {
         calculate_totals(frm);
-        // Supprimer les lignes vides avant sauvegarde
         remove_empty_rows(frm);
     }
 });
 
+
+// ========== SETUP SCANNER ==========
+
 function setup_barcode_scanner(frm) {
-    // Détacher les anciens événements pour éviter les doublons
     let $input = frm.fields_dict.scan_code_barre.$input;
     $input.off('keypress.barcode');
     
-    // Attacher l'événement sur Entrée uniquement
     $input.on('keypress.barcode', function(e) {
         if (e.which === 13) { // Touche Entrée
             e.preventDefault();
             let barcode = frm.doc.scan_code_barre;
-            if (barcode && barcode.length >= 3) {
-                process_barcode(frm, barcode);
+            
+            if (barcode && barcode.trim().length >= 8) {
+                process_barcode_scan(frm, barcode.trim(), 1, false); // Qté 1, pas de dialog
+            } else if (barcode && barcode.trim().length > 0) {
+                frappe.show_alert({
+                    message: __('Code-barre trop court (min 8 caractères)'),
+                    indicator: 'red'
+                }, 2);
             }
+            
+            // Vider et refocus
+            frm.set_value('scan_code_barre', '');
+            setTimeout(() => {
+                $input.focus();
+            }, 100);
         }
     });
 }
 
-function process_barcode(frm, barcode) {
+
+// ========== DIALOG SCAN AVEC QUANTITÉ ==========
+
+function open_quantity_scan_dialog(frm) {
+    let d = new frappe.ui.Dialog({
+        title: __('📦 Scan avec Quantité'),
+        fields: [
+            {
+                fieldname: 'code_barre',
+                fieldtype: 'Data',
+                label: __('Code-barre'),
+                reqd: 1
+            },
+            {
+                fieldname: 'quantite',
+                fieldtype: 'Int',
+                label: __('Quantité'),
+                reqd: 1,
+                default: 1
+            }
+        ],
+        primary_action_label: __('✅ Ajouter'),
+        primary_action: function(values) {
+            if (values.code_barre && values.quantite > 0) {
+                process_barcode_scan(frm, values.code_barre.trim(), values.quantite, true);
+                d.hide();
+            }
+        }
+    });
+    
+    d.show();
+    setTimeout(() => {
+        d.get_field('code_barre').$input.focus();
+    }, 500);
+}
+
+
+// ========== TRAITEMENT DU SCAN ==========
+
+function process_barcode_scan(frm, barcode, quantity, from_dialog) {
     frappe.call({
         method: 'frappe.client.get_list',
         args: {
             doctype: 'Article Epicerie',
             filters: { code_barre: barcode },
-            fields: ['name', 'nom_article', 'poids_kg', 'prix_moyen_eur']
+            fields: ['name', 'nom_article', 'poids_kg', 'prix_moyen_eur', 'statut']
         },
         callback: function(r) {
             if (r.message && r.message.length > 0) {
-                // Article trouvé ! Demander la quantité
+                // ✅ Article trouvé
                 let article = r.message[0];
-                show_quantity_dialog(frm, article);
+                
+                // Vérifier statut
+                if (article.statut === 'Inactif') {
+                    frappe.msgprint({
+                        title: __('Article inactif'),
+                        indicator: 'orange',
+                        message: __('L\'article "{0}" est marqué comme inactif.', [article.nom_article])
+                    });
+                }
+                
+                // Ajouter ou incrémenter DIRECTEMENT (sans dialog)
+                add_or_increment_article(frm, article, quantity);
+                
             } else {
-                // Article non trouvé -> Appeler les APIs
-                frappe.show_alert({message: 'Article non trouvé, recherche dans les APIs...', indicator: 'orange'}, 3);
-                fetch_from_apis(frm, barcode);
+                // ❌ Article non trouvé → Appeler APIs
+                frappe.show_alert({
+                    message: __('Article non trouvé. Recherche dans les APIs...'),
+                    indicator: 'orange'
+                }, 2);
+                
+                fetch_from_apis(frm, barcode, quantity);
             }
-            frm.set_value('scan_code_barre', '');
+            
+            // Refocus sur champ scan (si pas depuis dialog)
+            if (!from_dialog) {
+                setTimeout(() => {
+                    frm.fields_dict.scan_code_barre.$input.focus();
+                }, 100);
+            }
         }
     });
 }
 
-function remove_empty_rows(frm) {
-    // Supprimer les lignes sans article
-    let dominated = false;
-    (frm.doc.articles || []).forEach((row, idx) => {
-        if (!row.article) {
-            dominated = true;
+
+// ========== AJOUT / INCRÉMENTATION ARTICLE ==========
+
+function add_or_increment_article(frm, article, quantity) {
+    // Chercher si l'article est déjà dans la liste
+    let found_row = null;
+    
+    if (frm.doc.articles) {
+        for (let row of frm.doc.articles) {
+            if (row.article === article.name) {
+                found_row = row;
+                break;
+            }
         }
+    }
+    
+    if (found_row) {
+        // ✅ Incrémenter quantité existante
+        let old_qty = found_row.quantite || 0;
+        found_row.quantite = old_qty + quantity;
+        found_row.poids_ligne = (found_row.quantite || 0) * (found_row.poids_unitaire || 0);
+        found_row.valeur_ligne = (found_row.quantite || 0) * (found_row.prix_unitaire || 0);
+        
+        frappe.show_alert({
+            message: __('✅ {0} - Quantité: {1}', [article.nom_article, found_row.quantite]),
+            indicator: 'green'
+        }, 2);
+        
+    } else {
+        // ✅ Ajouter nouvelle ligne
+        let row = frm.add_child('articles');
+        row.article = article.name;
+        row.quantite = quantity;
+        row.poids_unitaire = article.poids_kg || 0;
+        row.prix_unitaire = article.prix_moyen_eur || 0;
+        row.poids_ligne = (article.poids_kg || 0) * quantity;
+        row.valeur_ligne = (article.prix_moyen_eur || 0) * quantity;
+        
+        frappe.show_alert({
+            message: __('✅ Ajouté: {0} (x{1})', [article.nom_article, quantity]),
+            indicator: 'green'
+        }, 2);
+    }
+    
+    frm.refresh_field('articles');
+    calculate_totals(frm);
+}
+
+
+// ========== UTILITAIRES ==========
+
+function remove_empty_rows(frm) {
+    let has_empty = false;
+    (frm.doc.articles || []).forEach((row) => {
+        if (!row.article) has_empty = true;
     });
-    if (dominated) {
+    
+    if (has_empty) {
         frm.doc.articles = (frm.doc.articles || []).filter(row => row.article);
         frm.refresh_field('articles');
     }
 }
+
+
+// ========== CALCULS AUTOMATIQUES ==========
 
 frappe.ui.form.on('Ligne Reception Don', {
     article: function(frm, cdt, cdn) {
@@ -85,69 +225,15 @@ frappe.ui.form.on('Ligne Reception Don', {
                 });
         }
     },
+    
     quantite: function(frm, cdt, cdn) {
         calculate_row(frm, cdt, cdn);
     },
+    
     articles_remove: function(frm) {
         calculate_totals(frm);
     }
 });
-
-// ========== DIALOG QUANTITÉ (Article existant) ==========
-
-function show_quantity_dialog(frm, article) {
-    let d = new frappe.ui.Dialog({
-        title: '📦 Ajouter à la réception',
-        fields: [
-            {
-                fieldtype: 'HTML',
-                fieldname: 'article_info',
-                options: `<div style="background:#d4edda;padding:15px;border-radius:8px;margin-bottom:15px;">
-                    <h4 style="margin:0 0 10px 0;">✅ ${article.nom_article}</h4>
-                    <p style="margin:0;color:#666;">Poids: ${article.poids_kg || 0} Kg | Prix: ${article.prix_moyen_eur || 0} EUR</p>
-                </div>`
-            },
-            {
-                fieldtype: 'Int',
-                fieldname: 'quantite',
-                label: 'Quantité',
-                default: 1,
-                reqd: 1,
-                description: 'Nombre d\'unités reçues'
-            }
-        ],
-        primary_action_label: '✅ Ajouter',
-        primary_action: function(values) {
-            add_article_to_table(frm, article.name, article.poids_kg, article.prix_moyen_eur, values.quantite);
-            frappe.show_alert({message: `${values.quantite}x "${article.nom_article}" ajouté !`, indicator: 'green'}, 3);
-            d.hide();
-            setTimeout(() => {
-                frm.fields_dict.scan_code_barre.$input.focus();
-            }, 100);
-        },
-        secondary_action_label: '❌ Annuler',
-        secondary_action: function() {
-            d.hide();
-        }
-    });
-    d.show();
-    setTimeout(() => {
-        d.fields_dict.quantite.$input.focus().select();
-    }, 100);
-}
-
-function add_article_to_table(frm, article_name, poids, prix, quantite) {
-    quantite = quantite || 1;
-    let row = frm.add_child('articles');
-    row.article = article_name;
-    row.quantite = quantite;
-    row.poids_unitaire = poids || 0;
-    row.prix_unitaire = prix || 0;
-    row.poids_ligne = (poids || 0) * quantite;
-    row.valeur_ligne = (prix || 0) * quantite;
-    frm.refresh_field('articles');
-    calculate_totals(frm);
-}
 
 function calculate_row(frm, cdt, cdn) {
     let row = locals[cdt][cdn];
@@ -162,6 +248,7 @@ function calculate_totals(frm) {
     let total_articles = 0;
     let total_poids = 0;
     let total_valeur = 0;
+    
     (frm.doc.articles || []).forEach(row => {
         if (row.article) {
             total_articles += (row.quantite || 0);
@@ -169,14 +256,16 @@ function calculate_totals(frm) {
             total_valeur += (row.valeur_ligne || 0);
         }
     });
+    
     frm.set_value('nombre_articles', total_articles);
     frm.set_value('poids_total', total_poids);
     frm.set_value('valeur_totale', total_valeur);
 }
 
-// ========== FONCTIONS API ==========
 
-async function fetch_from_apis(frm, barcode) {
+// ========== APIs (OpenFoodFacts, OpenProducts, OpenPrice) ==========
+
+async function fetch_from_apis(frm, barcode, quantity) {
     let product_data = {
         code_barre: barcode,
         nom_article: '',
@@ -192,6 +281,7 @@ async function fetch_from_apis(frm, barcode) {
     try {
         let off_response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json`);
         let off_data = await off_response.json();
+        
         if (off_data.status === 1 && off_data.product) {
             let p = off_data.product;
             product_data.nom_article = p.product_name_fr || p.product_name || '';
@@ -199,17 +289,24 @@ async function fetch_from_apis(frm, barcode) {
             product_data.quantity_text = p.quantity || '';
             product_data.image_url = p.image_url || '';
             product_data.api_source = 'OpenFoodFacts';
-            if (p.product_quantity) {
-                product_data.poids_kg = parseFloat(p.product_quantity) / 1000;
+            
+            if (p.product_quantity && p.product_quantity_unit) {
+                product_data.poids_kg = normalize_weight(
+                    parseFloat(p.product_quantity),
+                    p.product_quantity_unit
+                );
             }
         }
-    } catch(e) { console.log('OFF Error:', e); }
+    } catch(e) {
+        console.log('Open Food Facts Error:', e);
+    }
     
     // 2. Open Products Facts (si rien trouvé)
     if (!product_data.nom_article) {
         try {
             let opf_response = await fetch(`https://world.openproductsfacts.org/api/v2/product/${barcode}.json`);
             let opf_data = await opf_response.json();
+            
             if (opf_data.status === 1 && opf_data.product) {
                 let p = opf_data.product;
                 product_data.nom_article = p.product_name_fr || p.product_name || '';
@@ -217,58 +314,148 @@ async function fetch_from_apis(frm, barcode) {
                 product_data.quantity_text = p.quantity || '';
                 product_data.image_url = p.image_url || '';
                 product_data.api_source = 'OpenProductsFacts';
+                
+                if (p.product_quantity && p.product_quantity_unit) {
+                    product_data.poids_kg = normalize_weight(
+                        parseFloat(p.product_quantity),
+                        p.product_quantity_unit
+                    );
+                }
             }
-        } catch(e) { console.log('OPF Error:', e); }
+        } catch(e) {
+            console.log('Open Products Facts Error:', e);
+        }
     }
     
     // 3. Open Price
     try {
-        let price_response = await fetch(`https://prices.openfoodfacts.org/api/v1/prices?product_code=${barcode}`);
+        let price_response = await fetch(`https://prices.openfoodfacts.org/api/v1/prices?product_code=${barcode}&order_by=-date&size=20`);
         let price_data = await price_response.json();
+        
         if (price_data.items && price_data.items.length > 0) {
-            let prices = price_data.items.map(i => i.price).filter(p => p > 0);
-            if (prices.length > 0) {
-                product_data.prix_moyen_eur = prices.reduce((a,b) => a+b, 0) / prices.length;
+            let eur_prices = price_data.items
+                .filter(item => item.currency === 'EUR' && item.price)
+                .map(item => parseFloat(item.price));
+            
+            if (eur_prices.length > 0) {
+                let sum = eur_prices.reduce((a, b) => a + b, 0);
+                product_data.prix_moyen_eur = (sum / eur_prices.length).toFixed(2);
             }
         }
-    } catch(e) { console.log('Price Error:', e); }
+    } catch(e) {
+        console.log('Open Price Error:', e);
+    }
     
-    show_preview_dialog(frm, product_data);
+    // Afficher dialog de création
+    show_create_article_dialog(frm, product_data, quantity);
 }
 
-function show_preview_dialog(frm, data) {
+function normalize_weight(quantity, unit) {
+    if (!quantity || !unit) return null;
+    
+    const conversions = {
+        'g': 1000, 'kg': 1, 'mg': 1000000,
+        'l': 1, 'ml': 1000, 'cl': 100, 'dl': 10
+    };
+    
+    const u = unit.toLowerCase();
+    
+    if (conversions[u]) {
+        return (quantity / conversions[u]).toFixed(3);
+    }
+    
+    return null;
+}
+
+
+// ========== DIALOG CRÉATION ARTICLE ==========
+
+function show_create_article_dialog(frm, data, quantity) {
     let has_data = data.nom_article ? true : false;
     
+    let preview_html = has_data ? 
+        `<div style="background:#d4edda;padding:15px;border-radius:8px;margin-bottom:15px;">
+            <p><strong>Source:</strong> ${data.api_source}</p>
+            ${data.image_url ? `<img src="${data.image_url}" style="max-width:100px;max-height:100px;border-radius:4px;">` : ''}
+        </div>` : 
+        `<div style="background:#fff3cd;padding:15px;border-radius:8px;margin-bottom:15px;">
+            <p>⚠️ Produit non trouvé dans les APIs. Saisie manuelle requise.</p>
+        </div>`;
+    
     let d = new frappe.ui.Dialog({
-        title: has_data ? '📦 Article trouvé - Confirmer' : '📝 Créer nouvel article',
+        title: has_data ? __('📦 Article trouvé - Confirmer') : __('📝 Créer nouvel article'),
         fields: [
             {
                 fieldtype: 'HTML',
-                fieldname: 'preview_html',
-                options: has_data ? 
-                    `<div style="background:#d4edda;padding:15px;border-radius:8px;margin-bottom:15px;">
-                        <p><strong>Source:</strong> ${data.api_source}</p>
-                        ${data.image_url ? `<img src="${data.image_url}" style="max-width:100px;max-height:100px;border-radius:4px;">` : ''}
-                    </div>` : 
-                    `<div style="background:#fff3cd;padding:15px;border-radius:8px;margin-bottom:15px;">
-                        <p>⚠️ Produit non trouvé dans les APIs. Saisie manuelle requise.</p>
-                    </div>`
+                options: preview_html
             },
-            {fieldtype: 'Section Break', label: 'Informations Article'},
-            {fieldtype: 'Data', fieldname: 'code_barre', label: 'Code-Barre', default: data.code_barre, read_only: 1},
-            {fieldtype: 'Data', fieldname: 'nom_article', label: 'Nom Article', default: data.nom_article, reqd: 1},
-            {fieldtype: 'Column Break'},
-            {fieldtype: 'Data', fieldname: 'brands', label: 'Marque', default: data.brands},
-            {fieldtype: 'Data', fieldname: 'quantity_text', label: 'Contenance', default: data.quantity_text},
-            {fieldtype: 'Section Break', label: 'Poids et Prix'},
-            {fieldtype: 'Float', fieldname: 'poids_kg', label: 'Poids (Kg)', default: data.poids_kg},
-            {fieldtype: 'Column Break'},
-            {fieldtype: 'Currency', fieldname: 'prix_moyen_eur', label: 'Prix Moyen (EUR)', default: data.prix_moyen_eur},
-            {fieldtype: 'Section Break', label: 'Quantité à recevoir'},
-            {fieldtype: 'Int', fieldname: 'quantite', label: 'Quantité', default: 1, reqd: 1, description: 'Nombre d\'unités reçues'}
+            {
+                fieldtype: 'Section Break',
+                label: __('Informations Article')
+            },
+            {
+                fieldtype: 'Data',
+                fieldname: 'code_barre',
+                label: __('Code-Barre'),
+                default: data.code_barre,
+                read_only: 1
+            },
+            {
+                fieldtype: 'Data',
+                fieldname: 'nom_article',
+                label: __('Nom Article'),
+                default: data.nom_article,
+                reqd: 1
+            },
+            {
+                fieldtype: 'Column Break'
+            },
+            {
+                fieldtype: 'Data',
+                fieldname: 'brands',
+                label: __('Marque'),
+                default: data.brands
+            },
+            {
+                fieldtype: 'Data',
+                fieldname: 'quantity_text',
+                label: __('Contenance'),
+                default: data.quantity_text
+            },
+            {
+                fieldtype: 'Section Break',
+                label: __('Poids et Prix')
+            },
+            {
+                fieldtype: 'Float',
+                fieldname: 'poids_kg',
+                label: __('Poids (Kg)'),
+                default: data.poids_kg
+            },
+            {
+                fieldtype: 'Column Break'
+            },
+            {
+                fieldtype: 'Currency',
+                fieldname: 'prix_moyen_eur',
+                label: __('Prix Moyen (EUR)'),
+                default: data.prix_moyen_eur
+            },
+            {
+                fieldtype: 'Section Break',
+                label: __('Quantité')
+            },
+            {
+                fieldtype: 'Int',
+                fieldname: 'quantite',
+                label: __('Quantité à recevoir'),
+                default: quantity,
+                reqd: 1
+            }
         ],
-        primary_action_label: '✅ Créer et Ajouter',
+        primary_action_label: __('✅ Créer et Ajouter'),
         primary_action: function(values) {
+            // Créer l'article
             frappe.call({
                 method: 'frappe.client.insert',
                 args: {
@@ -287,9 +474,24 @@ function show_preview_dialog(frm, data) {
                 },
                 callback: function(r) {
                     if (r.message) {
-                        add_article_to_table(frm, r.message.name, values.poids_kg, values.prix_moyen_eur, values.quantite);
-                        frappe.show_alert({message: `${values.quantite}x "${values.nom_article}" créé et ajouté !`, indicator: 'green'}, 5);
+                        let article_data = {
+                            name: r.message.name,
+                            nom_article: values.nom_article,
+                            poids_kg: values.poids_kg,
+                            prix_moyen_eur: values.prix_moyen_eur,
+                            statut: 'Actif'
+                        };
+                        
+                        add_or_increment_article(frm, article_data, values.quantite);
+                        
+                        frappe.show_alert({
+                            message: __('✅ Article créé et ajouté: {0}', [values.nom_article]),
+                            indicator: 'green'
+                        }, 3);
+                        
                         d.hide();
+                        
+                        // Refocus sur champ scan
                         setTimeout(() => {
                             frm.fields_dict.scan_code_barre.$input.focus();
                         }, 100);
@@ -297,19 +499,25 @@ function show_preview_dialog(frm, data) {
                 },
                 error: function(r) {
                     frappe.msgprint({
-                        title: 'Erreur',
+                        title: __('Erreur'),
                         indicator: 'red',
-                        message: 'Impossible de créer l\'article. Vérifiez les données.'
+                        message: __('Impossible de créer l\'article. Vérifiez les données.')
                     });
                 }
             });
         },
-        secondary_action_label: '❌ Annuler',
+        secondary_action_label: __('❌ Annuler'),
         secondary_action: function() {
             d.hide();
+            // Refocus sur champ scan
+            setTimeout(() => {
+                frm.fields_dict.scan_code_barre.$input.focus();
+            }, 100);
         }
     });
+    
     d.show();
+    
     setTimeout(() => {
         if (has_data) {
             d.fields_dict.quantite.$input.focus().select();
