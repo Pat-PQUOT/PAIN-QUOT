@@ -5,6 +5,36 @@ Toutes les modifications notables de ce projet seront documentées dans ce fichi
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [1.1.0] - 2026-01-08 - 📱 OPTIMISATION MOBILE
+
+### Ajouté
+- **Boutons scanner caméra 📷 sur mobile** (3 scripts)
+  - `article_epicerie_api_integration.js` - Bouton après champ "famille"
+  - `reception_don_scanner.js` - Bouton avant champ "scan_code_barre"
+  - `distribution_don_scanner.js` - Bouton avant champ "scan_code_barre"
+- Désactivation autofocus clavier mobile (évite masquage bouton)
+- Gros boutons touch-friendly (padding 15px, font-size 18px)
+- Détection mobile via User-Agent
+- Documentation complète dans `README_SCANNER_MOBILE.md`
+
+### Modifié
+- Client Script `article_epicerie_api_integration.js` :
+  - Bouton scanner uniquement sur mobile (pas sur PC)
+  - Amélioration UX mobile avec blur() sur champ code-barre
+- Simulation événement ENTER pour déclencher logiques existantes
+
+### Technique
+- User-Agent detection: `/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i`
+- Scanner Frappe: `frappe.ui.Scanner` avec callback `on_scan`
+- Simulation ENTER: `$.Event('keypress')` avec `which: 13`
+
+### Statut
+✅ **TESTÉ ET VALIDÉ** sur mobile  
+✅ **DÉPLOYÉ** sur france.frappe.cloud  
+📱 **UX MOBILE OPTIMISÉE**
+
+---
+
 ## [1.0.0] - 2026-01-03 - 🚀 MISE EN PRODUCTION
 
 ### Ajouté
@@ -109,3 +139,4 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 - 📅 Planifié
 - ⚠️ Problème connu
 - 🚀 Mise en production
+- 📱 Mobile optimisé
