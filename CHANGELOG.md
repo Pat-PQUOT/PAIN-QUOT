@@ -5,7 +5,60 @@ Toutes les modifications notables de ce projet seront documentées dans ce fichi
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
-## [1.1.0] - 2026-01-08 - 📱 OPTIMISATION MOBILE
+## [2.0.0] - 2026-01-08 - 📚 CLARIFICATIONS ARCHITECTURE & PHARMACIE PARIS
+
+### Documentation
+- **SYNTHESE_V2_POLE_CH_PHARMACIE.md** - Résumé exécutif clarifications architecture
+- Clarification majeure : Pharmacie Paris fait partie du **Pôle CH (Centres Hospitaliers)**
+- Spécifications détaillées Pôle CH - Pharmacie Paris :
+  - 8 DocTypes détaillés (Medicament, Stock, Lot, Reception, Envoi, Etablissement, Demande, Donateur)
+  - 5 Client Scripts prévus (enrichissement GTIN, péremption, FIFO, scanner, historique)
+  - 6 Server Scripts prévus (stock update, alertes, workflow)
+  - Workflow complet Hub Paris → Hôpitaux distants
+  - Intégrations APIs (BDPM France, WHO, UNICEF, IDA, GS1)
+  - Traçabilité stricte (lots + péremptions obligatoires)
+  - Classification ATC/OMS (5 niveaux)
+
+### Architecture corrigée
+
+**AVANT (incorrect)** :
+```
+Pôle Épicerie Solidaire (indépendant)
+Pôle Pharmacie Paris (indépendant)
+```
+
+**MAINTENANT (correct)** :
+```
+Pôle Épicerie Solidaire (indépendant) ✅
+Pôle CH (Centres Hospitaliers)
+  └─> Pharmacie Paris (Hub central) 🆕
+      └─> Envois vers hôpitaux distants
+```
+
+### Structure GitHub prévue
+```
+pain_quotidien/
+├── epicerie_solidaire/    ✅ Actif (v1.1.0)
+└── pole_ch/              🆕 À créer
+    ├── pharmacie_paris/   🆕 Priorité immédiate
+    └── healthcare/       📅 Futur
+```
+
+### Roadmap Pharmacie Paris (5 phases)
+1. **Phase 1.1** - Référentiel Médicaments (Semaine 08-14/01/2026)
+2. **Phase 1.2** - Réceptions & Stock (Semaine 15-21/01/2026)
+3. **Phase 1.3** - Envois Hôpitaux (Février 2026)
+4. **Phase 1.4** - Suivi & Alertes (Février 2026)
+5. **Phase 1.5** - Production (Mars 2026)
+
+### Statut
+📚 **DOCUMENTATION COMPLÈTE**  
+⏳ **EN ATTENTE VALIDATION** avant démarrage Pharmacie Paris  
+🎯 **PRÊT À DÉMARRER** dès validation utilisateur
+
+---
+
+## [1.1.0] - 2026-01-08 - 📱 OPTIMISATION MOBILE ÉPICERIE
 
 ### Ajouté
 - **Boutons scanner caméra 📷 sur mobile** (3 scripts)
@@ -35,7 +88,7 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
-## [1.0.0] - 2026-01-03 - 🚀 MISE EN PRODUCTION
+## [1.0.0] - 2026-01-03 - 🚀 MISE EN PRODUCTION ÉPICERIE
 
 ### Ajouté
 - Client Script `beneficiaire_calcul_nom_complet.js` - Calcul automatique du nom complet
@@ -69,7 +122,7 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
-## [0.2.0] - 2026-01-02
+## [0.2.0] - 2026-01-02 - TRANSACTIONS ÉPICERIE
 
 ### Ajouté
 - DocType `Reception Don` (Submittable)
@@ -90,7 +143,7 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
-## [0.1.0] - 2026-01-01 - 🎬 PROJET INITIAL
+## [0.1.0] - 2026-01-01 - 🎬 PROJET INITIAL ÉPICERIE
 
 ### Ajouté
 - DocType `Article Epicerie` avec gestion de stock
@@ -105,7 +158,7 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
   - Open Price
 - Scan code-barre fonctionnel avec dialog prévisualisation
 - Workspace "Épicerie Solidaire" initial
-- Catégories d'articles hiérarchiques (Item Groups)
+- Catégories d'articles hiérarchiques (Item Groups → Categorie Article Epicerie)
 - Rôle "Bénévole Épicerie"
 - Role Profile "Bénévole Épicerie"
 - Module Profile "Épicerie Solidaire"
@@ -120,16 +173,37 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
-### À venir
-- [ ] Alertes automatiques stock bas
-- [ ] Gestion dates d'expiration (DLC) + logique FIFO
-- [ ] Rapports personnalisés avancés
-- [ ] Module Pharmacie Solidaire
-- [ ] Badges de couleur pour statuts Actif/Inactif
+### À venir - Pharmacie Paris (Phase 1)
+- [ ] Phase 1.1 - Référentiel Médicaments (Semaine 08-14/01/2026)
+  - [ ] DocType Medicament avec classification ATC
+  - [ ] Enrichissement GTIN via BDPM France
+  - [ ] Client Script scan + enrichissement auto
+- [ ] Phase 1.2 - Réceptions & Stock (Semaine 15-21/01/2026)
+  - [ ] DocTypes Reception, Stock, Lot, Donateur
+  - [ ] Server Scripts gestion stock + traçabilité lots
+  - [ ] Client Script scanner mobile
+- [ ] Phase 1.3 - Envois Hôpitaux (Février 2026)
+  - [ ] DocTypes Envoi, Etablissement, Demande
+  - [ ] Workflow validation pharmacien
+  - [ ] FIFO automatique
+- [ ] Phase 1.4 - Alertes (Février 2026)
+  - [ ] Alertes péremption automatiques
+  - [ ] Dashboard suivi stocks distants
+- [ ] Phase 1.5 - Production (Mars 2026)
+  - [ ] Workspace complet
+  - [ ] Formation équipe
+  - [ ] Premier envoi réel
 
-### En cours
+### À venir - Autres pôles (À planifier)
+- [ ] Pôle Soutien (Orphelinats, parrainages)
+- [ ] Pôle Logistique (Dons matériels)
+- [ ] Pôle CH - Healthcare (Dossiers patients)
+- [ ] Pôle Comptabilité (2 comptabilités séparées)
+- [ ] Autres pôles...
+
+### En cours - Épicerie
+- [ ] Première réception de dons réelle
 - [ ] Première distribution réelle
-- [ ] Première réception de dons
 
 ---
 
@@ -140,3 +214,5 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 - ⚠️ Problème connu
 - 🚀 Mise en production
 - 📱 Mobile optimisé
+- 📚 Documentation
+- 🎯 Prêt à démarrer
